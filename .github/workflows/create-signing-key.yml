@@ -1,0 +1,51 @@
+name: 1 - Create signing key (run once)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  key:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make a new app signing key
+        run: |
+          PASS=$(openssl rand -hex 16)
+          echo "::add-mask::$PASS"
+          keytool -genkeypair -noprompt -keystore catering.jks -alias catering \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$PASS" -keypass "$PASS" \
+            -dname "CN=Catering Book, O=Catering Book, C=IN"
+          mkdir out
+          base64 -w0 catering.jks > out/KEYSTORE_BASE64.txt
+          printf '%s' "$PASS" > out/KEYSTORE_PASSWORD.txt
+          cp catering.jks out/catering-book-signing-key.jks
+          SHA1=$(keytool -list -v -keystore catering.jks -alias catering -storepass "$PASS" | grep -m1 'SHA1:' | sed 's/.*SHA1: *//')
+          SHA256=$(keytool -list -v -keystore catering.jks -alias catering -storepass "$PASS" | grep -m1 'SHA256:' | sed 's/.*SHA256: *//')
+          {
+            echo "## Signing key created"
+            echo ""
+            echo "**SHA-1 (paste this into Firebase → Add app → Android):**"
+            echo ""
+            echo "\`$SHA1\`"
+            echo ""
+            echo "SHA-256 (optional, add it too): \`$SHA256\`"
+            echo ""
+            echo "### Next"
+            echo "1. Download the **signing-key** file below (bottom of this page) and unzip it."
+            echo "2. Repo → Settings → Secrets and variables → Actions → New repository secret:"
+            echo "   - \`KEYSTORE_BASE64\` = contents of KEYSTORE_BASE64.txt"
+            echo "   - \`KEYSTORE_PASSWORD\` = contents of KEYSTORE_PASSWORD.txt"
+            echo "3. Keep \`catering-book-signing-key.jks\` + the password somewhere safe (Google Drive). Every update must be signed with this same key."
+            echo "4. Delete the downloaded files from your laptop after saving them."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signing-key
+          path: out/
+          retention-days: 1
