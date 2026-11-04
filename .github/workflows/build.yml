@@ -1,0 +1,100 @@
+name: 2 - Build app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      HAS_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+      HAS_KEY: ${{ secrets.KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build the web app
+        run: |
+          npm install --no-audit --no-fund
+          python3 scripts/build.py
+          ls -la dist
+
+      - name: Publish web app (laptop + iPhone)
+        if: env.HAS_SA == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: catering-book
+
+      - name: Web app not published
+        if: env.HAS_SA != 'true'
+        run: echo "::warning::FIREBASE_SERVICE_ACCOUNT secret not set — skipped publishing to catering-book.web.app"
+
+      - name: Put the app inside the Android shell
+        run: |
+          mkdir -p android/app/src/main/assets
+          cp dist/index.html android/app/src/main/assets/index.html
+          python3 - <<'PY'
+          import json
+          c = json.load(open('config.json'))
+          open('android/app/src/main/res/values/config.xml', 'w').write(
+              '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
+              f'    <string name="web_client_id" translatable="false">{c["webClientId"]}</string>\n</resources>\n')
+          PY
+
+      - name: No signing key yet
+        if: env.HAS_KEY != 'true'
+        run: echo "::warning::No signing key yet — APK skipped. Run '1 - Create signing key', add KEYSTORE_BASE64 and KEYSTORE_PASSWORD secrets, then run '2 - Build app' again."
+
+      - uses: actions/setup-java@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Build signed APK
+        if: env.HAS_KEY == 'true'
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/catering.jks"
+          export KEYSTORE_FILE="$RUNNER_TEMP/catering.jks"
+          gradle -p android assembleRelease --no-daemon --stacktrace
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk "out/CateringBook-1.0.${{ github.run_number }}.apk"
+          SHA1=$(keytool -printcert -jarfile out/*.apk | grep -m1 'SHA1:' | sed 's/.*SHA1: *//')
+          {
+            echo "## Catering Book 1.0.${{ github.run_number }}"
+            echo "- APK signed with SHA-1 \`$SHA1\`"
+            echo "- Web app: https://catering-book.web.app $( [ "$HAS_SA" = "true" ] && echo '(published)' || echo '(not published — add FIREBASE_SERVICE_ACCOUNT)')"
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm -f "$RUNNER_TEMP/catering.jks"
+
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          name: CateringBook-apk
+          path: out/*.apk
+
+      - uses: softprops/action-gh-release@v2
+        if: env.HAS_KEY == 'true'
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Catering Book 1.0.${{ github.run_number }}
+          files: out/*.apk
