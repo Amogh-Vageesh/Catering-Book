@@ -1,0 +1,16 @@
+{
+  "firebase": {
+    "apiKey": "AIzaSyBMz9Q_AjRkJwdFb8DLeys-BIeDvcUxPZM",
+    "authDomain": "catering-book.web.app",
+    "projectId": "catering-book",
+    "storageBucket": "catering-book.firebasestorage.app",
+    "messagingSenderId": "573266040594",
+    "appId": "1:573266040594:web:456da101adc816184305cb"
+  },
+  "ownerEmails": [
+    "rvagee@gmail.com",
+    "vinayakan1609@gmail.com"
+  ],
+  "webClientId": "573266040594-k6j6vrspapconi9au8hgi3i3uqjhibav.apps.googleusercontent.com",
+  "androidPackage": "in.cateringbook.app"
+}

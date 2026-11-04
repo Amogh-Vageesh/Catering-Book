@@ -1,0 +1,34 @@
+/* ================= PRICES & MARGIN INSIGHTS ================= */
+function priceSeries(){const M={};allLines().forEach(l=>{if(!(+l.qty)||!(+l.amount))return;const it=l.itemId&&byId('items',l.itemId);const key=it?'i:'+it.id:'n:'+normName(l.name);if(key==='n:')return;
+  (M[key]=M[key]||{name:it?it.name:l.name,unit:it?it.unit:l.unit,pts:[]}).pts.push({d:l.d,rate:l.amount/l.qty,amount:+l.amount})});
+  Object.values(M).forEach(s=>s.pts.sort((a,b)=>a.d.localeCompare(b.d)));return M}
+function priceChange(s){const recent=s.pts.filter(p=>p.d>=addDays(-90)),old=s.pts.filter(p=>p.d<addDays(-90)&&p.d>=addDays(-455));
+  const avg=a=>sum(a,p=>p.amount)/sum(a,p=>p.amount/p.rate);
+  if(recent.length&&old.length)return{from:avg(old),to:avg(recent),ch:avg(recent)/avg(old)-1,w:sum(recent,p=>p.amount),since:old[0].d};
+  if(s.pts.length>=2&&(new Date(s.pts[s.pts.length-1].d)-new Date(s.pts[0].d))>45*864e5){const a=s.pts[0],b=s.pts[s.pts.length-1];return{from:a.rate,to:b.rate,ch:b.rate/a.rate-1,w:sum(s.pts.slice(-3),p=>p.amount),since:a.d}}
+  return null}
+function basket(){const rows=Object.values(priceSeries()).map(s=>({s,c:priceChange(s)})).filter(r=>r.c);const w=sum(rows,r=>r.c.w);return{rows,infl:w?sum(rows,r=>r.c.ch*r.c.w)/w:0}}
+function marginNow(days=90){const E=S.events.filter(e=>live(e)&&e.date<=today()&&e.date>=addDays(-days)&&+e.plates&&cost(e));
+  const pl=sum(E,e=>e.plates),s=sum(E,sub),c=sum(E,cost);return{E,pl,rate:pl?s/pl:0,cpp:pl?c/pl:0,m:s?(s-c)/s:0}}
+function fuelStats(R){return S.vehicles.map(v=>{const F=S.expenses.filter(x=>x.vehicleId===v.id&&x.cat==='Vehicle fuel'&&+x.qty).sort((a,b)=>a.date.localeCompare(b.date));
+  const inR=F.filter(x=>inP(x.date,R));const L=sum(inR,x=>x.qty),A=sum(inR,x=>x.amount);
+  const od=F.filter(x=>+x.odo);let kmpl=0;if(od.length>=2){const km=+od[od.length-1].odo-+od[0].odo,lit=sum(od.slice(1),x=>x.qty);kmpl=lit?km/lit:0}
+  return{v,L,A,rate:L?A/L:0,kmpl,n:inR.length}}).filter(f=>f.n||f.kmpl)}
+function insPrices(){const R=period(IP);const b=basket(),mn=marginNow(),t=(+S.targetMargin||35)/100;
+  const need=mn.cpp?mn.cpp/(1-t):0,needUp=mn.cpp?mn.cpp*(1+Math.max(0,b.infl))/(1-t):0;
+  const ms=months(12),spend=ms.map(m=>sum(S.expenses.filter(x=>mk(x.date)===m),x=>x.amount));
+  const l3=sum(spend.slice(-4,-1),v=>v),p3=sum(spend.slice(-7,-4),v=>v),g=p3?l3/p3-1:0;
+  const catCh=S.cats.map(c=>{const a=sum(S.expenses.filter(x=>x.cat===c.id&&x.date>=addDays(-90)),x=>x.amount),z=sum(S.expenses.filter(x=>x.cat===c.id&&x.date<addDays(-90)&&x.date>=addDays(-180)),x=>x.amount);return{c,a,z,ch:z?a/z-1:0}}).filter(r=>r.z>2000&&r.a).sort((x,y)=>y.a-y.z-(x.a-x.z)).slice(0,5);
+  const types={};mn.E.forEach(e=>{const o=types[e.type]||(types[e.type]={n:0,s:0,c:0,p:0});o.n++;o.s+=sub(e);o.c+=cost(e);o.p+=+e.plates});
+  const fuel=fuelStats(R),items=b.rows.sort((x,y)=>y.c.w-x.c.w);
+  return `<div class="kpis">${kpi(T('Price rise (your items)'),(b.infl>=0?'+':'')+Math.round(b.infl*100)+'%',b.infl>.03?'out':'in',T('last 3 months vs before'))}${kpi(T('Spending growth'),(g>=0?'+':'')+Math.round(g*100)+'%',g>.1?'out':'',T('last 3 months vs previous 3'))}${kpi(T('Current margin'),Math.round(mn.m*100)+'%',mn.m<t?'out':'in',`${T('target')} ${Math.round(t*100)}% · ${T('last 90 days')}`)}${kpi(T('Cost per plate'),mn.cpp?inr(mn.cpp):'—','',mn.rate?`${T('you charge')} ${inr(mn.rate)}`:'')}</div>
+  <h2>🎯 ${T('Rate needed for your target margin')}</h2><div class="card">
+  <div class="row"><span class="sp">${T('Target margin')}</span>${can.admin()?`<input type="number" value="${Math.round(t*100)}" style="width:80px;padding:6px" onchange="S.targetMargin=+this.value||35;save();render()">%`:`<b>${Math.round(t*100)}%</b>`}</div>
+  ${mn.pl?`<div class="row" style="margin-top:10px"><span class="sp">${T('Minimum rate per plate now')}</span><b>${inr(need)}</b></div>
+  <div class="row"><span class="sp">${T('If prices keep rising')} (${Math.round(Math.max(0,b.infl)*100)}%)</span><b>${inr(needUp)}</b></div>
+  ${need>mn.rate?`<div class="alert r" style="margin-top:10px">📈 ${T('Raise your average rate by')} <b>&nbsp;${inr(need-mn.rate)} (${Math.round((need/mn.rate-1)*100)}%)&nbsp;</b> ${T('per plate to reach')} ${Math.round(t*100)}%.</div>`:`<div class="alert g" style="margin-top:10px">✅ ${T('Your rates cover the target margin')} — ${T('headroom')} ${inr(mn.rate-need)} ${T('per plate')}.</div>`}`:`<div class="empty">${T('Finish a few orders with costs entered to see this.')}</div>`}</div>
+  ${Object.keys(types).length?`<h2>${T('Suggested rate by event type')}</h2><div class="card" style="overflow-x:auto"><table><tr><th>${T('Type')}</th><th>${T('Now')}</th><th>${T('Cost')}</th><th>${T('Margin')}</th><th>${T('Suggest')}</th></tr>${Object.entries(types).map(([k,v])=>{const r=v.s/v.p,c=v.c/v.p,m=(r-c)/r,sg=Math.ceil(c*(1+Math.max(0,b.infl))/(1-t)/5)*5;return `<tr><td>${esc(T(k))}</td><td>${Math.round(r)}</td><td>${Math.round(c)}</td><td class="${m<t?'out':'in'}">${Math.round(m*100)}%</td><td><b>${sg>r?sg:'—'}</b></td></tr>`}).join('')}</table><div class="mut" style="margin-top:8px">₹ ${T('per plate')}, ${T('last 90 days')}. ${T('Suggest = cost with expected price rise, at your target margin.')}</div></div>`:''}
+  <h2>💹 ${T('Item prices')}</h2><div class="card">${items.length?items.slice(0,15).map(r=>`<div class="row" style="padding:7px 0;border-top:1px solid var(--line)"><div class="sp"><b>${esc(r.s.name)}</b><div class="mut" style="font-size:12px">${inr(r.c.from)} → ${inr(r.c.to)} / ${esc(r.s.unit||'')} · ${T('since')} ${fd(r.c.since)}</div></div>${sparkline(r.s.pts.map(p=>({y:p.rate})),70,26)}<b class="${r.c.ch>.02?'out':r.c.ch<-.02?'in':''}" style="width:52px;text-align:right">${r.c.ch>=0?'+':''}${Math.round(r.c.ch*100)}%</b></div>`).join(''):`<div class="empty">${T('Add item lines (qty & price) to bills, or scan bills, to track prices.')}</div>`}</div>
+  ${fuel.length?`<h2>⛽ ${T('Fuel')} — ${esc(R.label)}</h2><div class="card"><table><tr><th>${T('Vehicle')}</th><th>${T('Litres')}</th><th>₹/L</th><th>km/L</th></tr>${fuel.map(f=>`<tr onclick="vehView('${f.v.id}')"><td>${esc(f.v.name)}</td><td>${f.L?Math.round(f.L):'—'}</td><td>${f.rate?f.rate.toFixed(1):'—'}</td><td>${f.kmpl?f.kmpl.toFixed(1):'—'}</td></tr>`).join('')}</table><div class="mut" style="margin-top:8px">${T('Mileage uses odometer readings entered with fuel.')}</div></div>`:''}
+  <h2>📊 ${T('Monthly spending')}</h2><div class="card">${bars(ms.map(m=>mname(m).split(' ')[0]),[spend],['var(--out)'])}</div>
+  ${catCh.length?`<h2>${T('Biggest increases')}</h2><div class="card">${catCh.map(r=>`<div class="row" style="padding:5px 0"><span class="sp">${r.c.icon} ${esc(T(r.c.name))}</span><span class="mut">${short(r.z)} → ${short(r.a)}</span><b class="${r.ch>0?'out':'in'}" style="width:52px;text-align:right">${r.ch>=0?'+':''}${Math.round(r.ch*100)}%</b></div>`).join('')}<div class="mut" style="margin-top:6px">${T('last 3 months vs the 3 before')}</div></div>`:''}`}

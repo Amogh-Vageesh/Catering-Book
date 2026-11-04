@@ -1,0 +1,13 @@
+{
+ "name": "catering-book",
+ "private": true,
+ "scripts": {
+  "build": "python3 scripts/build.py"
+ },
+ "dependencies": {
+  "firebase": "13.2.0"
+ },
+ "devDependencies": {
+  "esbuild": "0.28.2"
+ }
+}
