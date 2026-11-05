@@ -7,13 +7,20 @@ service cloud.firestore {
   match /databases/{db}/documents {
     function signedIn()     { return request.auth != null && request.auth.token.email_verified == true; }
     function email()        { return request.auth.token.email.lower(); }
+    function meKey()        { return 'u:' + email(); }
     function memberPath()   { return /databases/$(db)/documents/members/$(email()); }
     function isMember()     { return signedIn() && exists(memberPath()) && get(memberPath()).data.get('active', true) == true; }
     function role()         { return get(memberPath()).data.role; }
+    function access()       { return get(memberPath()).data.get('access', 'edit'); }
     function ownerList()    { return ['rvagee@gmail.com', 'vinayakan1609@gmail.com']; }
-    function isOwner()      { return signedIn() && (email() in ownerList() || (isMember() && role() == 'owner')); }
-    function canWrite()     { return isMember() && role() in ['owner', 'manager']; }
-    function dataColl(c)    { return c in ['events','expenses','customers','vendors','vehicles','works','workers','assets','policies','shifts','items','stock','vpays']; }
+    // Owner and co-owner see and change everything.
+    function isOwner()      { return signedIn() && (email() in ownerList() || (isMember() && role() in ['owner', 'coowner'])); }
+    // Managers and staff with "Can add & edit" access.
+    function canWrite()     { return isOwner() || (isMember() && role() in ['manager', 'staff'] && access() == 'edit'); }
+    function dataColl(c)    { return c in ['events','expenses','customers','vendors','vehicles','works','workers','assets','policies','shifts','items','stock','vpays','floats','jobs']; }
+    // Money records only the owner/co-owner can read or change. Others see orders through "jobs" (no prices or payments).
+    function ownerOnly(c)   { return c in ['events','assets','policies','vpays']; }
+    function ownerWrite(c)  { return c in ['events','assets','policies','vpays','floats','jobs']; }
 
     // Team list: everyone in the team can see it; only the owner can change it.
     match /members/{e} {
@@ -36,11 +43,18 @@ service cloud.firestore {
     }
 
     // Business records. Deletes are "soft" (deleted: true) so every phone hears about them;
-    // only the owner may mark something deleted. Family members are read-only.
+    // only the owner may mark something deleted. Family / view-only members cannot change anything.
     match /{coll}/{id} {
-      allow read: if isMember() && dataColl(coll);
-      allow create, update: if canWrite() && dataColl(coll)
-                            && (role() == 'owner' || request.resource.data.get('deleted', false) == false);
+      allow read: if isMember() && dataColl(coll) && (
+                     isOwner()
+                  || (!ownerOnly(coll) && coll != 'expenses' && coll != 'floats')
+                  || (coll == 'expenses' && (resource.data.get('byE', '') == meKey() || resource.data.get('floatOf', '') == meKey()))
+                  || (coll == 'floats' && resource.data.get('to', '') == meKey()));
+      allow create, update: if dataColl(coll) && (
+                     isOwner()
+                  || (canWrite() && !ownerWrite(coll) && request.resource.data.get('deleted', false) == false
+                      && (coll != 'expenses' || (request.resource.data.get('byE', '') == meKey()
+                                                 && (resource == null || resource.data.get('byE', '') == meKey())))));
       allow delete: if false;
     }
   }

@@ -60,8 +60,20 @@ const delMember = email => deleteDoc(doc(db, 'members', email));
 
 // Incremental sync: load everything from the on-device cache first (no reads billed),
 // then listen only for documents changed since the newest one we already have.
-async function start(colls, onDocs) {
+async function start(colls, onDocs, filters) {
+  filters = filters || {};
   for (const c of colls) {
+    // Team members (not owners) only receive their own records, e.g. their own expenses and cash advances.
+    if (filters[c]) {
+      for (const [f, v] of filters[c]) {
+        const u = onSnapshot(query(collection(db, c), where(f, '==', v)), s => {
+          const docs = []; s.docChanges().forEach(ch => { if (ch.type !== 'removed') docs.push({ ...ch.doc.data(), id: ch.doc.id }); });
+          if (docs.length) onDocs(c, docs, false);
+        }, err => console.warn('sync', c, err.code));
+        unsubs.push(u);
+      }
+      continue;
+    }
     let maxU = 0;
     try {
       const snap = await getDocsFromCache(collection(db, c));

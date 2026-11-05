@@ -10,7 +10,7 @@ function settle(debits,credits){const E=[...debits.map(x=>({...x,k:'d'})),...cre
   if(carried<-0.5)adv.unshift({d:carriedOn,left:-carried,lab:T('Advance carried forward')});
   const due=sum(open,x=>x.left),advance=sum(adv,x=>x.left);return{open,adv,due,advance,net:due-advance}}
 const isCredit=x=>x.mode==='Pay later (credit)';
-let VC=null;const bust=()=>{VC=null};
+let VC=null,GBC=new WeakMap();const bust=()=>{VC=null;GBC=new WeakMap()};
 function vendBal(id){VC=VC||{};if(VC[id])return VC[id];
   const bills=S.expenses.filter(x=>x.vendorId===id&&isCredit(x)&&!x.paidOn).map(x=>({d:x.date,a:+x.amount||0,x}));
   const pays=S.vpays.filter(p=>p.vendorId===id).map(p=>({d:p.date,a:+p.amount||0,p}));
@@ -46,8 +46,9 @@ function workerPay(id,advance){const w=wkr(id),r=workerSettle(id);const net=Math
 
 /* ---- vendors with ledger ---- */
 function vendRow(v){const b=vendBal(v.id),tot=sum(S.expenses.filter(x=>x.vendorId===v.id),x=>x.amount);
-  return `<div class="item" onclick="vendView('${v.id}')">${ava(v.name,'sq')}<div class="sp"><div class="t1">${esc(v.name)}</div><div class="mut">${[v.type&&esc(v.type),v.phone&&esc(v.phone),placeLine(v)].filter(Boolean).join(' · ')}</div></div>${b.bal>0.5?`<span class="pill due">${T('Due')} ${short(b.bal)}</span>`:b.bal<-0.5?`<span class="pill enq">${T('Advance')} ${short(-b.bal)}</span>`:can.money()?`<span class="mut">${short(tot)}</span>`:''}</div>`}
-function vendView(id){const v=vend(id);if(!v)return;const b=vendBal(id);const xs=S.expenses.filter(x=>x.vendorId===id);
+  return `<div class="item" onclick="vendView('${v.id}')">${ava(v.name,'sq')}<div class="sp"><div class="t1">${esc(v.name)}</div><div class="mut">${[v.type&&esc(v.type),v.phone&&esc(v.phone),placeLine(v)].filter(Boolean).join(' · ')}</div></div>${!can.money()?'':b.bal>0.5?`<span class="pill due">${T('Due')} ${short(b.bal)}</span>`:b.bal<-0.5?`<span class="pill enq">${T('Advance')} ${short(-b.bal)}</span>`:`<span class="mut">${short(tot)}</span>`}</div>`}
+function vendView(id){const v=vend(id);if(!v)return;
+  if(!can.money()){sheet(`<div class="row"><h3 class="sp">${esc(v.name)}</h3>${can.manage()?`<button class="btn ghost sm" onclick="vendForm('${id}')">${T('Edit')}</button>`:''}</div><div class="card">${[['Phone',v.phone&&`<a href="tel:${esc(v.phone)}" style="color:var(--acc)">${esc(v.phone)}</a>`],['Category',v.type&&esc(v.type)],['Address',placeLine(v)],['GSTIN',v.gstin&&esc(v.gstin)]].filter(x=>x[1]).map(([l,x])=>`<div class="row" style="padding:4px 0"><span class="mut" style="width:80px">${T(l)}</span><span class="sp">${x}</span></div>`).join('')||'—'}</div>`);return}const b=vendBal(id);const xs=S.expenses.filter(x=>x.vendorId===id);
   const L=[...xs.map(x=>({d:x.date,t:'b',x})),...S.vpays.filter(p=>p.vendorId===id).map(p=>({d:p.date,t:'p',p}))].sort((a,b2)=>a.d.localeCompare(b2.d)||(a.t==='b'?-1:1));
   let bal=0;L.forEach(r=>{if(r.t==='b'&&isCredit(r.x)&&!r.x.paidOn)bal+=+r.x.amount||0;if(r.t==='p')bal-=+r.p.amount||0;r.bal=bal});L.reverse();
   sheet(`<div class="row"><h3 class="sp">${esc(v.name)}</h3>${can.add()?`<button class="btn ghost sm" onclick="vendForm('${id}')">${T('Edit')}</button>`:''}</div>

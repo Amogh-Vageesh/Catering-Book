@@ -41,6 +41,11 @@ Actions → **2 - Build app** → **Run workflow**.
 - Web: open **https://catering-book.web.app** on the laptop; on iPhone open it in Safari → Share → **Add to Home Screen**.
 - Sign in with an owner Gmail.
 
+## Updating the rules (needed for this version)
+This version adds co-owner / staff roles, view-only access, cash advances and price-free orders for the team.
+Firebase → Firestore Database → **Rules** → delete everything → paste all of `firestore.rules` → **Publish**.
+Until you do, managers' and staff's saves will be refused.
+
 ## Later
 - Every push to `main` builds a new version (`1.0.N`) that installs over the old one and keeps data.
 - Owners/managers/family are managed inside the app: ⚙️ → Team & roles.

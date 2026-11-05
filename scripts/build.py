@@ -20,7 +20,7 @@ def bundle_firebase():
 
 def build(mode):
     html = open(os.path.join(SRC, 'app.html'), encoding='utf-8').read()
-    parts = ''.join(open(os.path.join(SRC, f), encoding='utf-8').read() + '\n' for f in ('part_ui.js', 'part_balances.js', 'part_stock.js', 'part_prices.js', 'part_insui.js', 'part_seasons.js'))
+    parts = ''.join(open(os.path.join(SRC, f), encoding='utf-8').read() + '\n' for f in ('part_ui.js', 'part_balances.js', 'part_stock.js', 'part_prices.js', 'part_insui.js', 'part_seasons.js', 'part_gst.js', 'part_team.js'))
     html = html.replace('/*PARTS*/', parts).replace('/*STYLE*/', open(os.path.join(SRC, 'style.css'), encoding='utf-8').read())
     cfg_path = os.path.join(ROOT, 'config.json')
     if mode == 'mock':

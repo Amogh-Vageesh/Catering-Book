@@ -14,6 +14,7 @@ import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.provider.MediaStore;
+import android.speech.RecognizerIntent;
 import android.util.Base64;
 import android.view.View;
 import android.view.Window;
@@ -65,6 +66,7 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
     private static final String START_URL = "https://appassets.androidplatform.net/assets/index.html";
     private static final int REQ_FILE = 41;
+    private static final int REQ_SPEECH = 42;
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
     private Uri cameraUri;
@@ -172,6 +174,15 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_SPEECH) {
+            String text = "";
+            if (res == RESULT_OK && data != null) {
+                ArrayList<String> r = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                if (r != null && !r.isEmpty()) text = r.get(0);
+            }
+            js("window.__onSpeech&&window.__onSpeech(" + JSONObject.quote(text) + "," + (text.isEmpty() ? "'cancelled'" : "null") + ")");
+            return;
+        }
         if (req != REQ_FILE || fileCallback == null) return;
         Uri[] out = null;
         if (res == RESULT_OK) {
@@ -239,6 +250,19 @@ public class MainActivity extends Activity {
 
     /** Methods the web page can call as window.AndroidBridge.xxx(). */
     public class Bridge {
+        // Voice: uses the phone's own speech recogniser (Google), English or Kannada.
+        @JavascriptInterface
+        public void startSpeech(String lang) {
+            runOnUiThread(() -> {
+                Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang == null || lang.isEmpty() ? "en-IN" : lang);
+                i.putExtra(RecognizerIntent.EXTRA_PROMPT, "kn-IN".equals(lang) ? "ಆರ್ಡರ್ ವಿವರ ಹೇಳಿ" : "Say the order details");
+                try { startActivityForResult(i, REQ_SPEECH); }
+                catch (ActivityNotFoundException e) { js("window.__onSpeech&&window.__onSpeech('','not-available')"); }
+            });
+        }
+
         @JavascriptInterface
         public void saveFile(String name, String text) {
             io.execute(() -> {

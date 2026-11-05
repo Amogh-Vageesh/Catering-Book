@@ -22,7 +22,13 @@ const P={
   expense:'<path d="M7 17L17 7"/><path d="M9 7h8v8"/>',
   pie:'<path d="M12 3v9h9a9 9 0 1 1-9-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
   scan:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 10h8M8 14h5"/>',
-  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  gear:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  invoice:'<path d="M6 2.5h9l4 4V21a.5.5 0 0 1-.8.4L16 20l-2 1.5-2-1.5-2 1.5L8 20l-2.2 1.4A.5.5 0 0 1 5 21V3.5a1 1 0 0 1 1-1z"/><path d="M15 2.5V7h4M8.5 10h7M8.5 13.5h7M8.5 17h4"/>',
+  calc:'<rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8 6.5h8v3H8z"/><path d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h.01" stroke-width="2.6"/>',
+  percent:'<path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>',
+  share:'<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
+  mic:'<rect x="9" y="2.5" width="6" height="11.5" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>',
+  printer:'<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   lock:'<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
   chevR:'<path d="M9 6l6 6-6 6"/>',chevL:'<path d="M15 6l-6 6 6 6"/>',chevD:'<path d="M6 9l6 6 6-6"/>',
@@ -81,16 +87,42 @@ const heroArt=`<svg class="hero-art" viewBox="0 0 220 130" aria-hidden="true">
 /* Kosha-style list sheet */
 function sheetList(title,items){sheet(`<h3>${title}</h3><div>${items.map((it,i)=>`<button class="sheet-row" data-i="${i}">${it.tile||''}<span class="sp"><b>${esc(it.label)}</b>${it.sub?`<small>${esc(it.sub)}</small>`:''}</span>${ico('chevR',18)}</button>`).join('')}</div>`);
   document.querySelectorAll('.sheet .sheet-row').forEach(b=>b.onclick=()=>{close();items[+b.dataset.i].run()})}
-function addSheet(){const L=[{label:T('New order'),sub:T('Enquiry or confirmed event'),tile:tile('calendar','amber'),run:()=>evForm()},
-  {label:T('Expense'),sub:T('Bill, purchase, fuel, wages'),tile:tile('expense','red'),run:()=>expForm()},
-  {label:T('Scan bill'),sub:T('Photo or PDF — fills items for you'),tile:tile('scan','green'),run:()=>scanPick()},
-  {label:T('Mark attendance'),sub:T('Workers and groups, one day or a range'),tile:tile('users','purple'),run:()=>attendForm()},
-  {label:T('Add work'),sub:T('Task for the team'),tile:tile('check','teal'),run:()=>workForm()},
-  {label:T('Add customer'),tile:tile('person','blue'),run:()=>custForm()}];
-  const ctx=fabAction();if(page||!['home','events','ledger'].includes(tab)){const lab={assets:assetTab==='assets'?'Add asset':'Add licence / policy',data:{customers:'Add customer',workers:'Add worker',vendors:'Add vendor',vehicles:'Add vehicle',stock:'Add item'}[dataTab]}[tab];if(ctx&&lab)L.unshift({label:T(lab),tile:tile('plus','amber'),run:ctx})}
-  sheetList(T('Add entry'),L)}
+function addSheet(){go('add')}
+function pickOrder(title,run,filter){const t=today();const L=S.events.filter(e=>e.status!=='cancelled'&&(!filter||filter(e))).sort((a,b)=>Math.abs(new Date(a.date)-new Date(t))-Math.abs(new Date(b.date)-new Date(t))).slice(0,30);
+  if(!L.length){toast(T('Add an order first'));return}
+  sheetList(title,L.map(e=>({label:evName(e),sub:fd(e.date)+' · '+T(e.type||'')+(can.money()?' · '+inr(net(e))+(due(e)?' · '+T('Due')+' '+inr(due(e)):''):''),tile:ava(evName(e),'sq'),run:()=>run(e.id)})))}
+function pickFrom(title,list,run,subf){if(!list.length){toast(T('Nothing here'));return}sheetList(title,list.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(x=>({label:x.name,sub:subf?subf(x):'',tile:ava(x.name),run:()=>run(x.id)})))}
+function addGroups(){const M=can.money(),O=can.orders(),G=can.manage(),A=can.add();if(!A)return[];
+  return [
+  ['Money',[O&&['calendar','amber','New order','Enquiry or confirmed event',()=>evForm()],
+    O&&['mic','pink','Voice order','Speak or paste order details',()=>voiceSheet()],
+    O&&['handcoin','green','Payment received','From a customer, against an order',()=>pickOrder(T('Payment received'),id=>payForm(id))],
+    O&&['invoice','blue','Create bill','Digital bill or GST invoice for an order',()=>pickOrder(T('Create bill'),id=>billForm(id),e=>live(e))],
+    ['expense','red','Expense','Bill, purchase, fuel, wages',()=>expForm()],
+    ['scan','teal','Scan bill','Photo or PDF — fills items for you',()=>scanPick()],
+    M&&['cash','green','Give cash to team','For expenses — track balance',()=>floatForm()],
+    M&&['store','orange','Pay vendor','Deducts any advance',()=>pickFrom(T('Pay vendor'),S.vendors,id=>vendPay(id),v=>{const b=vendBal(v.id);return b.bal>0?T('To pay')+' '+inr(b.bal):''})],
+    M&&['users','purple','Pay worker','Deducts any advance',()=>pickFrom(T('Pay worker'),S.workers.filter(w=>w.active!==false),id=>workerPay(id),w=>wDue(w.id)>0?T('Due')+' '+inr(wDue(w.id)):'')]]],
+  ['People',G?[['person','blue','Customer','Name, phone, address, GSTIN',()=>custForm()],
+    ['chef','purple','Worker','Contract or salaried',()=>{dataWCat='';workerForm()}],
+    ['users','indigo','Group of workers','Team managed by a contractor',()=>{dataWCat='Group';workerForm();dataWCat=''}],
+    ['store','orange','Vendor','Shop or supplier',()=>vendForm()]]:[]],
+  ['Work',[G&&['check','green','Attendance','Who worked, one day or a range',()=>attendForm()],
+    ['list','teal','Work task','To-do for the team',()=>workForm()]]],
+  ['Things',G?[['box','amber','Stock item','New item in inventory',()=>itemForm()],
+    ['cart','green','Stock in / used','Purchase or use of stock',()=>pickFrom(T('Stock item'),S.items,id=>moveForm(id,'in'))],
+    ['truck','brown','Vehicle','Own or hired',()=>vehForm()],
+    M&&['pot','pink','Asset','Vessels, equipment, furniture',()=>assetForm()],
+    M&&['shield','slate','Licence / policy','FSSAI, insurance, trade licence',()=>polForm()]]:[]]
+  ].map(([g,L])=>[g,L.filter(Boolean)]).filter(([g,L])=>L.length)}
+let ADDL=[];
+function addV(){ADDL=[];return addGroups().map(([g,L])=>`<h2>${T(g)}</h2><div class="addgrid">${L.map(([ic,tn,l,sb,run])=>{ADDL.push(run);return `<button class="addbtn" onclick="ADDL[${ADDL.length-1}]()">${tile(ic,tn,'solid')}<b>${T(l)}</b><small>${T(sb)}</small></button>`}).join('')}</div>`).join('')||`<div class="empty">${T('View only')}</div>`}
 /* theme */
-const THK='caterbook.theme';
-function applyTheme(){const t=localStorage.getItem(THK)||'auto';if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t)}
+const THK='caterbook.theme',TSK='caterbook.textsize';
+function themeNow(){try{return localStorage.getItem(THK)||'light'}catch(e){return'light'}}
+function textNow(){try{return localStorage.getItem(TSK)||'m'}catch(e){return'm'}}
+function applyText(){document.documentElement.setAttribute('data-size',textNow())}
+function setText(z){try{localStorage.setItem(TSK,z)}catch(e){}applyText();render()}
+function applyTheme(){const t=themeNow();if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t)}
 function setTheme(t){try{localStorage.setItem(THK,t)}catch(e){}applyTheme();render()}
-applyTheme();
+applyTheme();applyText();
